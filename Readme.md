@@ -1,7 +1,7 @@
 # Django Auth
 
 <p align="center">
-  <img src="https://1000logos.net/wp-content/uploads/2020/08/Django-Logo.png" />
+  <img src="https://1000logos.net/wp-content/uploads/2020/08/Django-Logo.png" width="300" height="300" />
 </p>
 
 ## Introduction
@@ -16,6 +16,8 @@ Install the Django Web Framework:
 pip install django
 pip install djangorestframework   
 pip install django-filter   
+pip install psycopg2 # For database
+pip install python-decouple # Installing python-decouple for .env:
 ```
 
 Create the directory:
@@ -36,49 +38,18 @@ INSTALLED_APPS = [
 ]
 ```
 
-Typescript configuration:
-
-```bash
-tsc --init
-```
-
-Create a file called `nodemon.json` and copy this code
-
-```json
-{
-    "ignore": [
-      ".git",
-      "node_modules/",
-      "dist/",
-      "coverage/"
-    ],
-    "watch": [
-      "src/*"
-    ],
-    "ext": "js,json,ts"
-  }
-```
-
 ## Features
 
-List the main features of your admin server. For example:
+List the main features of your autth server. For example:
 - User authentication and authorization
-- CRUD operations for managing resources
-- Logging and monitoring
-- Order & Checkout
-
-## Requirements
-
-Outline the prerequisites and dependencies needed to run your admin server. For example:
-- Node.js (version)
-- npm or yarn
-- Database (if applicable)
+- Auth Token
+- 2FA Authentication
 
 ## Installation
 
 Provide step-by-step instructions for installing and setting up the project locally. Include commands and any additional configurations. For example:
 
 ```bash
-git clone https://github.com/andyrhman/node-shop.git
-cd node-admin
-npm install
+git clone https://github.com/andyrhman/node-auth.git
+cd node-auth
+pip install -t requirments.txt
