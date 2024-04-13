@@ -1,7 +1,7 @@
 # Django Auth
 
 <p align="center">
-  <img src="https://1000logos.net/wp-content/uploads/2020/08/Django-Logo.png" width="300" height="300" />
+  <img src="https://1000logos.net/wp-content/uploads/2020/08/Django-Logo.png" width="300" height="150" />
 </p>
 
 ## Introduction
