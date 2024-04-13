@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .serializers import UserSerializer
 from rest_framework import exceptions
+from .models import User
 from django.shortcuts import render
 
 class RegisterAPIView(APIView):
@@ -38,3 +39,27 @@ class RegisterAPIView(APIView):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+class LoginAPIView(APIView):
+    def post(self, request):
+        data = request.data
+        
+        if 'email' not in data:
+            return Response({"message": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+        elif 'password' not in data:
+            return Response({"message": "Password is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        email = request.data['email']
+        password = request.data['password']
+        
+        user = User.objects.filter(email=email).first()
+        
+        if user is None or user.check_password(password):
+            return Response({"message": "Invalid Credentials"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not user.check_password(password):
+            return Response({"message": "Invalid Credentials"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = UserSerializer(user)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+        
