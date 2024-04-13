@@ -4,6 +4,7 @@ from rest_framework import status
 from .serializers import UserSerializer
 from rest_framework import exceptions
 from .models import User
+from .authentication import create_access_token, create_refresh_token
 from django.shortcuts import render
 
 class RegisterAPIView(APIView):
@@ -50,16 +51,24 @@ class LoginAPIView(APIView):
         
         email = request.data['email']
         password = request.data['password']
+        remember_me = data.get('rememberMe', False)  # Default to False if not provided
         
         user = User.objects.filter(email=email).first()
         
-        if user is None or user.check_password(password):
+        if user is None:
             return Response({"message": "Invalid Credentials"}, status=status.HTTP_400_BAD_REQUEST)
         
         if not user.check_password(password):
             return Response({"message": "Invalid Credentials"}, status=status.HTTP_400_BAD_REQUEST)
         
-        serializer = UserSerializer(user)
+        access_token = create_access_token(user.id)
+        refresh_token = create_refresh_token(user.id, remember_me)
         
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        response = Response()
+        response.set_cookie(key='refresh_token', value=refresh_token, httponly=True)
+        response.data = {
+            'token': access_token
+        }
+        
+        return response
         
