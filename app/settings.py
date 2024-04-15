@@ -38,12 +38,14 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "corsheaders",
     "core"
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -71,6 +73,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "app.wsgi.application"
 
+REST_FRAMEWORK = {
+    'EXCEPTION_HANDLER': 'core.exception_handler.custom_exception_handler'
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -138,3 +143,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 # ? Default user value
 
 AUTH_USER_MODEL = 'core.User'
+
+# Cors
+CORS_ALLOWED_ORIGINS = [
+    config('CORS_ORIGIN'),
+]
+
+CORS_ALLOW_CREDENTIALS = True

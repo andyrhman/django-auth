@@ -1,11 +1,11 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.authentication import get_authorization_header
 from .serializers import UserSerializer
 from rest_framework import exceptions
 from .models import User
-from .authentication import create_access_token, create_refresh_token
-from django.shortcuts import render
+from .authentication import JWTAuthentication, create_access_token, create_refresh_token, decode_access_token
 
 class RegisterAPIView(APIView):
     def post(self, request):
@@ -71,4 +71,12 @@ class LoginAPIView(APIView):
         }
         
         return response
+    
+class UserAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    def get(self, request):
+        # * Alternative
+        # ? https://chat.openai.com/c/de7103d9-24aa-428c-86e7-7914a8d0c86b
+        return Response(UserSerializer(request.user).data)
+    
         
