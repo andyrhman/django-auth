@@ -26,3 +26,10 @@ class User(AbstractUser):
     username = None 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
+
+class UserToken(models.Model):
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    user_id = models.UUIDField(default=uuid.uuid4, primary_key=False, editable=False)
+    token = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expired_at = models.DateTimeField()

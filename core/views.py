@@ -1,10 +1,11 @@
+from datetime import datetime, timedelta, timezone
 from decouple import config
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import UserSerializer
 from rest_framework import exceptions
-from .models import User
+from .models import User, UserToken
 from .authentication import JWTAuthentication, create_access_token, create_refresh_token, decode_refresh_token
 
 class RegisterAPIView(APIView):
@@ -69,6 +70,12 @@ class LoginAPIView(APIView):
             access_token = create_access_token(user.id)
             refresh_token = create_refresh_token(user.id, remember_me)
             
+            UserToken.objects.create(
+                user_id=user.id,
+                token=refresh_token,
+                expired_at=datetime.now(timezone.utc) + timedelta(days=7)
+            )
+            
             response = Response()
             response.set_cookie(key='refresh_token', value=refresh_token, httponly=True)
             response.data = {
@@ -99,12 +106,19 @@ class RefreshAPIView(APIView):
             refresh_token = request.COOKIES.get('refresh_token')
             
             if not refresh_token:
-                return Response({'message': 'Invalid Request'}, status=status.HTTP_403_FORBIDDEN)
+                return Response({'message': 'Unauthenticated'}, status=status.HTTP_403_FORBIDDEN)
 
             id = decode_refresh_token(refresh_token)
             
             if not id:
-                return Response({'message': 'Invalid Request'}, status=status.HTTP_403_FORBIDDEN)
+                return Response({'message': 'Unauthenticated'}, status=status.HTTP_403_FORBIDDEN)
+            
+            if not UserToken.objects.filter(
+                user_id=id,
+                token=refresh_token,
+                expired_at__gt=datetime.now(timezone.utc)
+            ).exists():
+                return Response({"message": "Unauthenticated"}, status=status.HTTP_403_FORBIDDEN)
             
             access_token = create_access_token(id)
             
@@ -115,8 +129,11 @@ class RefreshAPIView(APIView):
             return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
             
 class LogoutAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
     def post(self, request):
         try:    
+            UserToken.objects.filter(user_id=request.user.id).delete()
+            
             response = Response()
             response.delete_cookie(key='refresh_token')
             response.data = {
