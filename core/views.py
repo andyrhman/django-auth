@@ -1,11 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.authentication import get_authorization_header
 from .serializers import UserSerializer
 from rest_framework import exceptions
 from .models import User
-from .authentication import JWTAuthentication, create_access_token, create_refresh_token, decode_access_token
+from .authentication import JWTAuthentication, create_access_token, create_refresh_token, decode_refresh_token
 
 class RegisterAPIView(APIView):
     def post(self, request):
@@ -79,4 +78,19 @@ class UserAPIView(APIView):
         # ? https://chat.openai.com/c/de7103d9-24aa-428c-86e7-7914a8d0c86b
         return Response(UserSerializer(request.user).data)
     
+class RefreshAPIView(APIView):
+    def post(self, request):
+        refresh_token = request.COOKIES.get('refresh_token')
+        
+        if not refresh_token:
+            return Response({'error': 'Invalid Request'}, status=status.HTTP_403_FORBIDDEN)
+
+        id = decode_refresh_token(refresh_token)
+        
+        if not id:
+            return Response({'error': 'Invalid Request'}, status=status.HTTP_403_FORBIDDEN)
+        
+        access_token = create_access_token(id)
+        
+        return Response({"token": access_token})
         

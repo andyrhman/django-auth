@@ -21,11 +21,11 @@ class JWTAuthentication(BaseAuthentication):
             
             try:
                 user = User.objects.get(pk=id)
-                return (user, None)  # Correctly return user and auth
+                return (user, None) 
             except User.DoesNotExist:
-                raise NotFound('User not found')  # Raise NotFound instead of returning Response
+                raise NotFound('User not found') 
         
-        raise AuthenticationFailed('Unauthenticated')  # Raise exception if no auth provided
+        raise AuthenticationFailed('Unauthenticated')
 
 def create_access_token(id):
     return jwt.encode({
@@ -50,6 +50,15 @@ def create_refresh_token(id, remember_me=False):
 def decode_access_token(token):
     try:
         payload = jwt.decode(token, 'access_secret', algorithms='HS256')
+        
+        return payload['user_id']
+    except Exception as e:
+        print(e)
+        return None
+
+def decode_refresh_token(token):
+    try:
+        payload = jwt.decode(token, 'refresh_secret', algorithms='HS256')
         
         return payload['user_id']
     except Exception as e:
