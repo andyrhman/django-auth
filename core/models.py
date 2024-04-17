@@ -33,3 +33,11 @@ class UserToken(models.Model):
     token = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     expired_at = models.DateTimeField()
+    
+class Reset(models.Model):
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    email = models.CharField(max_length=255)
+    token = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expired_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
