@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import secrets
 from decouple import config
+import pyotp
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -62,7 +63,7 @@ class LoginAPIView(APIView):
             
             email = request.data['email']
             password = request.data['password']
-            remember_me = data.get('rememberMe', False)  # Default to False if not provided
+            rememberMe = data.get('rememberMe', False)  # Default to False if not provided
             
             user = User.objects.filter(email=email).first()
             
@@ -72,13 +73,53 @@ class LoginAPIView(APIView):
             if not user.check_password(password):
                 return Response({"message": "Invalid Credentials"}, status=status.HTTP_400_BAD_REQUEST)
             
-            access_token = create_access_token(user.id)
-            refresh_token = create_refresh_token(user.id, remember_me)
+            if user.tfa_secret:
+                return Response({
+                    'id': user.id,
+                    'rememberMe': rememberMe
+                })
             
+            secret = pyotp.random_base32()
+            otpauth_url = pyotp.totp.TOTP(secret).provisioning_uri(issuer_name="Django OTP")
+            
+            return Response({
+                'id': user.id,
+                'rememberMe': rememberMe,
+                'secret': secret,
+                'otpauth_url': otpauth_url
+            })
+            
+        except Exception as e:
+            if config('DEBUG', cast=bool):
+                print(e)
+            return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
+
+class TwoFactorAPIView(APIView):
+    def post(self, request):
+            id = request.data['id']
+            
+            user = User.objects.filter(pk=id).first()
+            
+            if not user:
+                return Response({'message': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+             
+            secret = user.tfa_secret if user.tfa_secret != '' else request.data['secret']   
+            
+            if not pyotp.TOTP(secret).verify(request.data['code']):
+                return Response({'message': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+            
+            if user.tfa_secret == '':
+                user.tfa_secret = secret
+                user.save()
+                
+            access_token = create_access_token(id)
+            
+            # ? https://chat.openai.com/c/f87078bd-29ad-45af-9ee1-b72422001594
+            refresh_token, token_expiration = create_refresh_token(id, request.data['rememberMe'])
             UserToken.objects.create(
-                user_id=user.id,
+                user_id=id,
                 token=refresh_token,
-                expired_at=datetime.now(timezone.utc) + timedelta(days=7)
+                expired_at=token_expiration
             )
             
             response = Response()
@@ -88,11 +129,7 @@ class LoginAPIView(APIView):
             }
             
             return response
-        except Exception as e:
-            if config('DEBUG', cast=bool):
-                print(e)
-            return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
-    
+ 
 class UserAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     def get(self, request):

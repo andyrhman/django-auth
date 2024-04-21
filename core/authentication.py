@@ -36,16 +36,16 @@ def create_access_token(id):
     
 def create_refresh_token(id, remember_me=False):
     if remember_me:
-        # Set expiration to 1 year if "remember me" is checked
         exp_duration = datetime.timedelta(days=365)
     else:
-        # Set expiration to 30 seconds if "remember me" is not checked
         exp_duration = datetime.timedelta(seconds=30)
-    return jwt.encode({
-        'user_id': str(id),  # Convert UUID to string
-        'exp': datetime.datetime.now(datetime.UTC) + exp_duration,
-        'iat': datetime.datetime.now(datetime.UTC)
+    expiration = datetime.datetime.now(datetime.timezone.utc) + exp_duration
+    token = jwt.encode({
+        'user_id': str(id),
+        'exp': expiration,
+        'iat': datetime.datetime.now(datetime.timezone.utc)
     }, 'refresh_secret', algorithm='HS256')
+    return token, expiration
     
 def decode_access_token(token):
     try:
