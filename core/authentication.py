@@ -1,4 +1,5 @@
-import jwt, datetime
+import jwt, datetime, traceback
+from decouple import config
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authentication import get_authorization_header, BaseAuthentication
@@ -52,8 +53,9 @@ def decode_access_token(token):
         payload = jwt.decode(token, 'access_secret', algorithms='HS256')
         
         return payload['user_id']
-    except Exception as e:
-        print(e)
+    except Exception:
+        if config('DEBUG', cast=bool):
+            traceback.print_exc()
         return None
 
 def decode_refresh_token(token):
@@ -62,5 +64,6 @@ def decode_refresh_token(token):
         
         return payload['user_id']
     except Exception as e:
-        print(e)
+        if config('DEBUG', cast=bool):
+            traceback.print_exc()
         return None

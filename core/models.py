@@ -2,6 +2,16 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 import uuid
 
+# ! Fixing the migration problem if there is unknown error
+# ? https://chat.openai.com/c/a2bedf2d-801d-4814-8298-9dd7fb0973c3
+"""
+TLDR;
+Delete the migrations file, drop the tables, and do this
+python manage.py flush
+python manage.py makemigrations your_app_name
+python manage.py migrate
+"""
+
 # Create your models here.
 class User(AbstractUser):
     # ? https://stackoverflow.com/questions/61464113/django-db-utils-programmingerror-cannot-cast-type-uuid-to-integer
@@ -20,13 +30,11 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
     email = models.CharField(max_length=255, unique=True)
+    username = models.CharField(max_length=255, unique=True)
     password = models.CharField(max_length=255)
     tfa_secret = models.CharField(max_length=255, default='')
-
-    # remove the default username field in django AbstractUser
-    username = None 
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = []
+    
+    USERNAME_FIELD = 'username'
 
 class UserToken(models.Model):
     id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)

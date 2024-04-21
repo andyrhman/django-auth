@@ -1,7 +1,6 @@
+import secrets, traceback, pyotp, random, string
 from datetime import datetime, timedelta, timezone
-import secrets
 from decouple import config
-import pyotp
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -12,7 +11,8 @@ from .authentication import JWTAuthentication, create_access_token, create_refre
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
-
+from google.oauth2 import id_token
+from google.auth.transport import requests as googlerequest
 
 class RegisterAPIView(APIView):
     def post(self, request):
@@ -48,7 +48,7 @@ class RegisterAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except Exception as e:
             if config('DEBUG', cast=bool):
-                print(e)
+                traceback.print_exc()
             return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginAPIView(APIView):
@@ -56,16 +56,16 @@ class LoginAPIView(APIView):
         try:  
             data = request.data
             
-            if 'email' not in data:
-                return Response({"message": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+            if 'username' not in data:
+                return Response({"message": "Username is required"}, status=status.HTTP_400_BAD_REQUEST)
             elif 'password' not in data:
                 return Response({"message": "Password is required"}, status=status.HTTP_400_BAD_REQUEST)
             
-            email = request.data['email']
+            username = request.data['username']
             password = request.data['password']
             rememberMe = data.get('rememberMe', False)  # Default to False if not provided
             
-            user = User.objects.filter(email=email).first()
+            user = User.objects.filter(username=username).first()
             
             if user is None:
                 return Response({"message": "Invalid Credentials"}, status=status.HTTP_400_BAD_REQUEST)
@@ -91,11 +91,12 @@ class LoginAPIView(APIView):
             
         except Exception as e:
             if config('DEBUG', cast=bool):
-                print(e)
+                traceback.print_exc()
             return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
 
 class TwoFactorAPIView(APIView):
     def post(self, request):
+        try: 
             id = request.data['id']
             
             user = User.objects.filter(pk=id).first()
@@ -129,6 +130,10 @@ class TwoFactorAPIView(APIView):
             }
             
             return response
+        except Exception:
+            if config('DEBUG', cast=bool):
+                traceback.print_exc()
+            return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
  
 class UserAPIView(APIView):
     authentication_classes = [JWTAuthentication]
@@ -139,7 +144,7 @@ class UserAPIView(APIView):
             return Response(UserSerializer(request.user).data)
         except Exception as e:
             if config('DEBUG', cast=bool):
-                print(e)
+                traceback.print_exc()
             return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
     
 class RefreshAPIView(APIView):
@@ -167,7 +172,7 @@ class RefreshAPIView(APIView):
             return Response({"token": access_token})
         except Exception as e:
             if config('DEBUG', cast=bool):
-                print(e)
+                traceback.print_exc()
             return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
             
 class LogoutAPIView(APIView):
@@ -185,7 +190,7 @@ class LogoutAPIView(APIView):
             return response
         except Exception as e:
             if config('DEBUG', cast=bool):
-                print(e)
+                traceback.print_exc()
             return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
         
 class ForgotAPIView(APIView):
@@ -229,7 +234,7 @@ class ForgotAPIView(APIView):
             }, status=status.HTTP_201_CREATED)
         except Exception as e:
             if config('DEBUG', cast=bool):
-                print(e)
+                traceback.print_exc()
             return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
 
 class ResetAPIView(APIView):
@@ -267,5 +272,67 @@ class ResetAPIView(APIView):
             return Response({"message": "Password Updated Successfully"}, status=status.HTTP_200_OK)
         except Exception as e:
             if config('DEBUG', cast=bool):
-                print(e)
+                traceback.print_exc()
             return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
+        
+class GoogleAuthAPIView(APIView):
+    random_string = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
+    # ? https://chat.openai.com/c/e9497df3-2dcb-4a5f-a3a8-f2baa3067cdd
+    def post(self, request):
+        try: 
+            token = request.data['token']
+            
+            googleUser = id_token.verify_oauth2_token(token, googlerequest.Request(), config('GOOGLE_CLIENT_ID'))
+            
+            if not googleUser:
+                return Response({"message": "Unauthenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            user = User.objects.filter(email=googleUser.get('email')).first()
+            
+            
+            email = googleUser.get('email')
+            first_name = googleUser.get('given_name', '').split()[0]
+            last_name = googleUser.get('given_name', '').split()[1] if len(googleUser.get('given_name', '').split()) > 1 else self.random_string
+            proposed_username = googleUser.get('given_name', '').lower()
+            
+            if not user:
+                user = User.objects.create(
+                    first_name = first_name,
+                    last_name = last_name,
+                    username = proposed_username,
+                    email = email,
+                )
+                user.set_password(token)
+                user.save()
+            
+            access_token = create_access_token(user.id)        
+            # ? https://chat.openai.com/c/f87078bd-29ad-45af-9ee1-b72422001594
+            refresh_token, token_expiration = create_refresh_token(user.id, request.data['rememberMe'])
+            UserToken.objects.create(
+                user_id=user.id,
+                token=refresh_token,
+                expired_at=token_expiration
+            )
+            
+            response = Response()
+            response.set_cookie(key='refresh_token', value=refresh_token, httponly=True)
+            response.data = {
+                'token': access_token
+            }
+            
+            return response
+        except Exception:
+            if config('DEBUG', cast=bool):
+                traceback.print_exc()
+            return Response({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
