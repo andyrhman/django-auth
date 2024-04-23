@@ -73,12 +73,12 @@ class LoginAPIView(APIView):
                 return Response({"message": "Invalid Credentials"}, status=status.HTTP_400_BAD_REQUEST)
             
             access_token = create_access_token(user.id)
-            refresh_token = create_refresh_token(user.id, remember_me)
-            
+            # ? https://chat.openai.com/c/f87078bd-29ad-45af-9ee1-b72422001594
+            refresh_token, token_expiration = create_refresh_token(user.id, request.data['rememberMe'])
             UserToken.objects.create(
                 user_id=user.id,
                 token=refresh_token,
-                expired_at=datetime.now(timezone.utc) + timedelta(days=7)
+                expired_at=token_expiration
             )
             
             response = Response()
